@@ -199,7 +199,7 @@ def train(config_path: str) -> Path:
     set_seed(cfg.seed)
     input_dim = 21
     train_file = Path("data/processed/splits/train.csv")
-    fallback_file = Path("data/processed/protein_pairs.csv")
+    fallback_file = Path("data/processed/protein_pairs_selected.csv")
     val_file = Path("data/processed/splits/val.csv")
 
     train_pairs: list[ProteinPair] | None
@@ -271,7 +271,10 @@ def train(config_path: str) -> Path:
             grad_norm_values: list[float] = []
             current_lr = float(epoch_lr)
             if train_pairs is None:
-                raise RuntimeError("Training pairs not found. Please prepare training data first.")
+                raise RuntimeError(
+                    "Training pairs not found. Please run latest data pipeline first: "
+                    "make prepare-multi-source && make assemble-training-pairs && make split-pairs"
+                )
             train_pairs_epoch = train_pairs.copy()
             random.Random(cfg.seed + epoch).shuffle(train_pairs_epoch)
             if cfg.loss_type == "bce":

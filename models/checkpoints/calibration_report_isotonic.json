@@ -1,0 +1,20 @@
+{
+  "calibration_method": "isotonic",
+  "threshold_used": 0.04,
+  "n_val": 37,
+  "n_test": 33,
+  "before_calibration": {
+    "threshold": 0.04,
+    "accuracy": 0.7272727272727273,
+    "f1": 0.8301886792452831,
+    "auc": 0.64,
+    "pr_auc": 0.8445198562970948
+  },
+  "after_calibration": {
+    "threshold": 0.04,
+    "accuracy": 0.7575757575757576,
+    "f1": 0.8620689655172413,
+    "auc": 0.6675,
+    "pr_auc": 0.848369596586988
+  }
+}

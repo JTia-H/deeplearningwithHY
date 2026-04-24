@@ -1,0 +1,7 @@
+Total pairs: 162
+Duplicates: 0
+Empty-sequence rows: 0
+Positive: 54 (0.333)
+Negative: 108 (0.667)
+Mean seq_a length: 658.11
+Mean seq_b length: 633.19

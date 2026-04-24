@@ -1,0 +1,11 @@
+Positive Curation Report
+Input file: data/processed/protein_pairs_multi_source.csv
+Merged strict candidates: 237
+Raw positive rows: 528
+After length/sanity filter: 526
+After symmetric de-duplication: 289
+Strict positives (tier1_strict): 235
+Tier counts:
+- tier1_strict: 235
+- tier2_supported: 0
+- tier3_proxy: 54

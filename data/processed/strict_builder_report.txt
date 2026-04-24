@@ -1,0 +1,6 @@
+Strict Positive Builder Report
+required_score: 900
+max_pairs: 300
+max_partners_per_anchor: 3
+strict_candidate_count: 237
+source_label: phasepro_string_strict_candidate

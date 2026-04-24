@@ -53,10 +53,10 @@ The current structure is aligned with the four-stage technical guide.
      - `make assemble-training-pairs-strict`
      - `make assemble-training-pairs-supported`
      - `make assemble-training-pairs-all`
-11. Run pair quality checks:
-   - `python -m llps_diffusion.data.pairs_qc --input data/processed/protein_pairs.csv --report data/processed/pairs_qc_report.txt`
+11. Run pair quality checks (selected latest training set):
+   - `python -m llps_diffusion.data.pairs_qc --input data/processed/protein_pairs_selected.csv --report data/processed/pairs_qc_report.txt`
 12. Create leakage-safe splits:
-   - `python -m llps_diffusion.data.split_pairs --input data/processed/protein_pairs.csv --out-dir data/processed/splits --train-ratio 0.8 --val-ratio 0.1`
+   - `python -m llps_diffusion.data.split_pairs --input data/processed/protein_pairs_selected.csv --out-dir data/processed/splits --train-ratio 0.8 --val-ratio 0.1`
 13. Train (contrastive placeholder):
    - `python -m llps_diffusion.train --config configs/base.yaml`
 14. Predict on a pair:
@@ -81,6 +81,16 @@ The current structure is aligned with the four-stage technical guide.
 - Tests: `pytest`
 - Pre-commit: `pre-commit`
 - CI: GitHub Actions (`lint + test`)
+
+## Reproducibility Note
+
+- `data/raw/`, `data/interim/`, `data/processed/`, and `models/checkpoints/` are ignored by Git.
+- GitHub repository stores pipeline code, not generated local data artifacts.
+- To ensure training uses the latest dataset, always run:
+  - `make prepare-multi-source`
+  - `make assemble-training-pairs`
+  - `make split-pairs`
+  - `make train`
 
 ## Mapping to the PDF Stages
 

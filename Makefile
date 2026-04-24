@@ -49,10 +49,10 @@ prepare-multi-source:
 	python -m llps_diffusion.data.merge_positive_sources --base-pairs data/processed/protein_pairs.csv --strict-candidates data/processed/strict_positive_candidates.csv --llpsdb data/processed/llpsdb_positive_pairs.csv --output data/processed/protein_pairs_multi_source.csv --report data/processed/multi_source_merge_report.txt && python -m llps_diffusion.data.curate_positives --input data/processed/protein_pairs_multi_source.csv --strict-candidates data/processed/strict_positive_candidates.csv --output-all data/processed/positives_with_tiers.csv --output-strict data/processed/positives_strict.csv --report data/processed/curation_report.txt
 
 pairs-qc:
-	python -m llps_diffusion.data.pairs_qc --input data/processed/protein_pairs.csv --report data/processed/pairs_qc_report.txt
+	python -m llps_diffusion.data.pairs_qc --input data/processed/protein_pairs_selected.csv --report data/processed/pairs_qc_report.txt
 
 split-pairs:
-	python -m llps_diffusion.data.split_pairs --input data/processed/protein_pairs.csv --out-dir data/processed/splits --train-ratio 0.8 --val-ratio 0.1
+	python -m llps_diffusion.data.split_pairs --input data/processed/protein_pairs_selected.csv --out-dir data/processed/splits --train-ratio 0.8 --val-ratio 0.1
 
 split-pairs-selected:
 	python -m llps_diffusion.data.split_pairs --input data/processed/protein_pairs_selected.csv --out-dir data/processed/splits --train-ratio 0.8 --val-ratio 0.1

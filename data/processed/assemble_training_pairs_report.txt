@@ -1,0 +1,7 @@
+Assemble Training Pairs Report
+mode: strict_only
+all_pairs_source: data/processed/protein_pairs_multi_source.csv
+selected_positives: 235
+negatives: 108
+total_selected_pairs: 343
+output_csv: data/processed/protein_pairs_selected.csv

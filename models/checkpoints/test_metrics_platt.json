@@ -1,0 +1,10 @@
+{
+  "n_samples": 33.0,
+  "threshold": 0.01,
+  "threshold_source": "models/checkpoints/best_threshold.json",
+  "calibration": "platt@val",
+  "accuracy": 0.7575757575757576,
+  "f1": 0.8620689655172413,
+  "auc": 0.505,
+  "pr_auc": 0.7876522616221822
+}

@@ -1,0 +1,35 @@
+{
+  "summary": {
+    "best_f1": "none",
+    "best_pr_auc": "none"
+  },
+  "rows": [
+    {
+      "name": "none",
+      "calibration": "none",
+      "threshold": 0.01,
+      "accuracy": 0.7575757575757576,
+      "f1": 0.8620689655172413,
+      "auc": 0.505,
+      "pr_auc": 0.7876522616221822
+    },
+    {
+      "name": "platt",
+      "calibration": "platt@val",
+      "threshold": 0.01,
+      "accuracy": 0.7575757575757576,
+      "f1": 0.8620689655172413,
+      "auc": 0.505,
+      "pr_auc": 0.7876522616221822
+    },
+    {
+      "name": "isotonic",
+      "calibration": "isotonic@val",
+      "threshold": 0.01,
+      "accuracy": 0.7575757575757576,
+      "f1": 0.8620689655172413,
+      "auc": 0.5149999999999999,
+      "pr_auc": 0.7793939393939394
+    }
+  ]
+}

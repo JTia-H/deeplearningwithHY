@@ -1,0 +1,7 @@
+Multi-source Positive Merge Report
+base_pairs: 162
+strict_candidates: 237
+merged_total: 399
+merged_positive: 291
+merged_negative: 108
+output_csv: data/processed/protein_pairs_multi_source.csv
