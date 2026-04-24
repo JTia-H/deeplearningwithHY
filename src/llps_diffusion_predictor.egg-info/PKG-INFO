@@ -1,0 +1,89 @@
+Metadata-Version: 2.4
+Name: llps-diffusion-predictor
+Version: 0.1.0
+Summary: Open-source framework for protein LLPS prediction with diffusion models.
+Author: LLPS Diffusion Contributors
+License: MIT
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.26
+Requires-Dist: pandas>=2.2
+Requires-Dist: matplotlib>=3.9
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: torch>=2.2
+Requires-Dist: scikit-learn>=1.5
+Requires-Dist: tqdm>=4.66
+Requires-Dist: requests>=2.32
+Provides-Extra: dev
+Requires-Dist: pytest>=8.2; extra == "dev"
+Requires-Dist: pytest-cov>=5.0; extra == "dev"
+Requires-Dist: ruff>=0.6.0; extra == "dev"
+Requires-Dist: mypy>=1.10; extra == "dev"
+Requires-Dist: pre-commit>=3.7; extra == "dev"
+
+# LLPS Diffusion Predictor
+
+Open-source framework for protein liquid-liquid phase separation (LLPS)
+prediction with diffusion-inspired modeling.
+The current structure is aligned with the four-stage technical guide.
+
+## Goals
+
+- Build reproducible data, training, and inference pipelines.
+- Use strict open-source engineering tooling (lint, type check, tests, hooks, CI).
+- Keep modules replaceable for full diffusion model integration.
+
+## Project Structure (Guide-Aligned)
+
+`src/llps_diffusion/`: core code  
+`configs/`: configuration files  
+`tests/`: tests  
+`docs/`: documentation  
+`data/`: data directory (raw / interim / processed)
+
+- `data/pairs.py`: pair schema, CSV I/O, and triplet iterator.
+- `data/generate_pairs.py`: positive/random-negative/hard-negative generation.
+- `data/pairs_qc.py`: dataset quality checks and report output.
+- `data/split_pairs.py`: leakage-safe split by anchor protein (`id_a`).
+- `features/priors.py`: prior-feature interfaces for IUPred3 / PLAAC.
+- `models/cross_attention.py`: two-tower + cross-attention scorer skeleton.
+- `losses/infonce.py`: InfoNCE loss.
+- `scoring/pspi.py`: CRL, CFG-Gap, and PSPI fusion interfaces.
+
+## Quick Start
+
+1. Install Python 3.11+.
+2. Install dependencies:
+   - `pip install -e ".[dev]"`
+3. Install pre-commit hook:
+   - `pre-commit install`
+4. Download PhasePro data (example):
+   - `python -m llps_diffusion.data.download_phasepro`
+5. Generate sample pairs (PhasePro + Swiss-Prot + STRING):
+   - `python -m llps_diffusion.data.generate_pairs --output data/processed/protein_pairs.csv`
+6. Run pair quality checks:
+   - `python -m llps_diffusion.data.pairs_qc --input data/processed/protein_pairs.csv --report data/processed/pairs_qc_report.txt`
+7. Create leakage-safe splits:
+   - `python -m llps_diffusion.data.split_pairs --input data/processed/protein_pairs.csv --out-dir data/processed/splits --train-ratio 0.8 --val-ratio 0.1`
+8. Train (contrastive placeholder):
+   - `python -m llps_diffusion.train --config configs/base.yaml`
+9. Predict on a pair:
+   - `python -m llps_diffusion.predict --seq-a "MSTNPKPQRKTKRNTNRRPQDVKFPGG" --seq-b "GGGGSSSSQQQQNNNNKKKK"`
+10. Plot training curves:
+   - `python -m llps_diffusion.visualization.plot_training --log-csv models/checkpoints/train_log.csv --output-png models/checkpoints/train_curves.png`
+
+## Development Tooling
+
+- Formatting / lint: `ruff`
+- Type check: `mypy`
+- Tests: `pytest`
+- Pre-commit: `pre-commit`
+- CI: GitHub Actions (`lint + test`)
+
+## Mapping to the PDF Stages
+
+- Stage 1 (data): `download_phasepro.py` + `generate_pairs.py` + `pairs.py` + `features/priors.py`
+- Stage 2 (architecture): `models/cross_attention.py`
+- Stage 3 (fine-tuning): `train.py` + `losses/infonce.py`
+- Stage 4 (inference/scoring): `predict.py` + `scoring/pspi.py`
+

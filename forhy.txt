@@ -1,0 +1,91 @@
+
+一、摘要
+本项目围绕蛋白质液-液相分离（Liquid-Liquid Phase Separation, LLPS）预测任务，构建了一个可复现、可扩展的开源机器学习基线系统。项目以蛋白质对为输入，预测其 LLPS 相关相互作用概率，并实现了从多源数据整合、质量控制、泄漏安全切分、模型训练、阈值优化、概率校准到结果可视化的端到端流程。
+在工程层面，项目采用配置化与自动化设计，具备标准化日志、最佳模型保存、指标对比与图形化输出能力。实验结果表明，训练稳定性已显著改善，但模型区分能力仍受数据可分性与标签噪声限制。该项目为后续引入更强序列表征与更高质量数据奠定了可靠基线。
+
+二、研究背景与目标
+LLPS 在细胞内无膜细胞器形成、信号传导及疾病机制中具有重要意义。由于高质量实验数据稀缺、样本定义复杂、负样本构造困难，LLPS 预测模型常面临泛化弱与不稳定问题。
+
+本项目目标如下：
+
+构建严格开源规范下的 LLPS 预测工程框架；
+打通“数据-训练-评估-可视化”全流程；
+在保持稳定训练的同时，提升模型判别能力；
+为后续升级至更强 backbone（如 PLM/扩散特征）提供可复用基线。
+三、方法与系统设计
+3.1 任务定义
+输入：蛋白质对 (Protein A, Protein B) 的序列信息；
+输出：该蛋白质对属于 LLPS 正类的概率；
+任务类型：二分类（positive / negative）。
+3.2 数据构建与分层策略
+项目采用多源数据融合：
+
+正样本来源：PhaSePro、LLPSDB、STRING 支持的 strict 候选；
+负样本来源：Swiss-Prot 随机负样本与 STRING hard negatives；
+证据分层：
+tier1_strict
+tier2_supported
+tier3_proxy
+数据处理关键点：
+
+对称去重（(A,B) 与 (B,A) 等价）；
+数据质量检查（重复、空序列、长度分布、标签分布）；
+泄漏安全切分（按 anchor protein 切分 train/val/test）。
+3.3 模型与优化
+主模型：PairCrossAttentionScorer（当前基线）；
+损失：默认 BCEWithLogitsLoss（保留 InfoNCE 分支）；
+稳训策略：
+梯度裁剪；
+学习率 warmup + cosine 衰减；
+NaN/Inf 数值保护；
+早停机制；
+best checkpoint 按 val_auc 自动保存；
+类别不平衡改进：
+BCE 类别平衡采样；
+pos_weight 自动小网格搜索（先短训选最优，再正式训练）。
+3.4 评估与后处理
+指标：AUC、PR-AUC、F1、Accuracy；
+阈值：在验证集做 sweep 得到 best_threshold；
+概率校准：Platt / Isotonic；
+输出：多方法评估对比报告与训练曲线图。
+四、工程实现与可复现性
+项目具备完整工程化能力：
+
+配置中心：configs/base.yaml
+自动化入口：Makefile
+质量工具：ruff、mypy、pytest、pre-commit
+核心输出：
+训练日志：models/checkpoints/train_log.csv
+最优权重：models/checkpoints/pair_cross_attention_best.pt
+最优阈值：models/checkpoints/best_threshold.json
+评估汇总：models/checkpoints/final_eval_comparison.json
+曲线图：models/checkpoints/train_curves.png
+五、实验结果（当前阶段）
+5.1 训练行为
+训练已从早期不稳定状态转为可控稳定；
+梯度范数、损失与验证流程均可持续记录；
+早停与最佳检查点机制可有效避免后期无效训练。
+5.2 性能观察
+引入平衡采样与自动 pos_weight 后，指标出现小幅改善；
+最新自动选择的 pos_weight 为 1.5；
+但整体 AUC 仍接近随机边界（约 0.50 附近），说明主瓶颈不在优化器，而在数据层面。
+5.3 校准与阈值
+阈值优化可提升特定分类指标（如 F1）；
+不同校准方法（none/platt/isotonic）在当前数据规模下差异有限，收益不稳定。
+六、问题分析与讨论
+当前结果表明：
+
+模型“能稳定训练”不等价于“具备强区分能力”；
+数据中的代理样本噪声、正负边界模糊、负样本难度分布不均，是性能上限的核心限制因素；
+继续仅做优化器/损失层微调，边际收益较小。
+七、结论
+本项目已完成一个规范化、可复现的 LLPS 预测基线系统，成功实现多源数据整合与完整训练评估闭环，并完成多轮稳训优化。当前阶段的主要贡献是“工程闭环 + 稳训能力 + 标准化评估体系”。
+未来性能提升的关键应转向高质量数据扩展与更强序列表征能力，而非单纯超参数微调。
+
+八、后续工作计划（建议写入报告）
+提升高置信正样本占比，降低 tier3_proxy 依赖；
+强化 hard negatives 质量与比例；
+引入 ESM/DPLM/EvoDiff 等高质量 embedding；
+做分层评估（按数据源、tier、物种）；
+增加外部独立测试集与不确定性评估；
+在当前工程框架中进行模块化替换，实现可重复对照实验。
