@@ -13,15 +13,13 @@ class TrainConfig:
     batch_size: int
     epochs: int
     learning_rate: float
+    weight_decay: float
+    max_seq_len: int
+    diffusion_steps: int
+    beta_start: float
+    beta_end: float
+    sampling_steps: int
     hidden_dim: int
-    temperature: float
-    num_negatives: int
-    loss_type: str
-    bce_pos_weight: float
-    bce_balance_sampling: bool
-    bce_auto_pos_weight: bool
-    bce_pos_weight_grid: list[float]
-    bce_pos_weight_tune_epochs: int
     grad_clip_norm: float
     warmup_epochs: int
     min_learning_rate: float
@@ -39,17 +37,13 @@ def load_config(config_path: str | Path) -> TrainConfig:
         batch_size=int(train_block["batch_size"]),
         epochs=int(train_block["epochs"]),
         learning_rate=float(train_block["learning_rate"]),
+        weight_decay=float(train_block.get("weight_decay", 1e-2)),
+        max_seq_len=int(train_block.get("max_seq_len", 256)),
+        diffusion_steps=int(train_block.get("diffusion_steps", 1000)),
+        beta_start=float(train_block.get("beta_start", 1e-4)),
+        beta_end=float(train_block.get("beta_end", 2e-2)),
+        sampling_steps=int(train_block.get("sampling_steps", 200)),
         hidden_dim=int(train_block["hidden_dim"]),
-        temperature=float(train_block["temperature"]),
-        num_negatives=int(train_block["num_negatives"]),
-        loss_type=str(train_block.get("loss_type", "bce")).lower(),
-        bce_pos_weight=float(train_block.get("bce_pos_weight", 1.0)),
-        bce_balance_sampling=bool(train_block.get("bce_balance_sampling", True)),
-        bce_auto_pos_weight=bool(train_block.get("bce_auto_pos_weight", True)),
-        bce_pos_weight_grid=[
-            float(x) for x in train_block.get("bce_pos_weight_grid", [1.0, 1.5, 2.0, 3.0])
-        ],
-        bce_pos_weight_tune_epochs=int(train_block.get("bce_pos_weight_tune_epochs", 3)),
         grad_clip_norm=float(train_block.get("grad_clip_norm", 1.0)),
         warmup_epochs=int(train_block.get("warmup_epochs", 3)),
         min_learning_rate=float(train_block.get("min_learning_rate", 1e-5)),

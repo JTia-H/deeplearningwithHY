@@ -3,15 +3,13 @@ train:
   batch_size: 16
   epochs: 50
   learning_rate: 0.001
+  weight_decay: 0.01
+  max_seq_len: 256
+  diffusion_steps: 1000
+  beta_start: 0.0001
+  beta_end: 0.02
+  sampling_steps: 200
   hidden_dim: 64
-  loss_type: bce
-  bce_pos_weight: 2.0
-  bce_balance_sampling: true
-  bce_auto_pos_weight: true
-  bce_pos_weight_grid: [1.0, 1.5, 2.0, 3.0]
-  bce_pos_weight_tune_epochs: 3
-  temperature: 0.07
-  num_negatives: 2
   grad_clip_norm: 1.0
   warmup_epochs: 3
   min_learning_rate: 0.00005

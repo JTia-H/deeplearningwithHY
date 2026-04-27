@@ -23,7 +23,8 @@ The current structure is aligned with the four-stage technical guide.
 - `data/pairs_qc.py`: dataset quality checks and report output.
 - `data/split_pairs.py`: leakage-safe split by anchor protein (`id_a`).
 - `features/priors.py`: prior-feature interfaces for IUPred3 / PLAAC.
-- `models/cross_attention.py`: two-tower + cross-attention scorer skeleton.
+- `models/conditional_diffusion.py`: conditional diffusion model for `p(B|A,y=1)` approximation.
+- `models/noise_schedule.py`: forward/reverse diffusion schedule.
 - `losses/infonce.py`: InfoNCE loss.
 - `scoring/pspi.py`: CRL, CFG-Gap, and PSPI fusion interfaces.
 
@@ -57,22 +58,29 @@ The current structure is aligned with the four-stage technical guide.
    - `python -m llps_diffusion.data.pairs_qc --input data/processed/protein_pairs_selected.csv --report data/processed/pairs_qc_report.txt`
 12. Create leakage-safe splits:
    - `python -m llps_diffusion.data.split_pairs --input data/processed/protein_pairs_selected.csv --out-dir data/processed/splits --train-ratio 0.8 --val-ratio 0.1`
-13. Train (contrastive placeholder):
-   - `python -m llps_diffusion.train --config configs/base.yaml`
-14. Predict on a pair:
-   - `python -m llps_diffusion.predict --seq-a "MSTNPKPQRKTKRNTNRRPQDVKFPGG" --seq-b "GGGGSSSSQQQQNNNNKKKK"`
-15. Sweep threshold on validation split:
-   - `python -m llps_diffusion.eval.threshold_sweep --val-csv data/processed/splits/val.csv --checkpoint models/checkpoints/pair_cross_attention_best.pt --output-json models/checkpoints/best_threshold.json --step 0.01`
-16. Evaluate best checkpoint on test split:
-   - `python -m llps_diffusion.eval.evaluate --test-csv data/processed/splits/test.csv --checkpoint models/checkpoints/pair_cross_attention_best.pt --output-json models/checkpoints/test_metrics.json --threshold-json models/checkpoints/best_threshold.json`
-   - Optional manual override: add `--threshold 0.5`
-   - Optional calibrated eval: add `--calibration-method isotonic --val-csv-for-calibration data/processed/splits/val.csv`
-   - Makefile shortcuts: `make evaluate-test`, `make evaluate-test-platt`, `make evaluate-test-isotonic`, `make evaluate-compare`
-17. Calibrate probabilities on val split and compare test metrics:
-   - `python -m llps_diffusion.eval.calibrate --val-csv data/processed/splits/val.csv --test-csv data/processed/splits/test.csv --checkpoint models/checkpoints/pair_cross_attention_best.pt --threshold-json models/checkpoints/best_threshold.json --output-json models/checkpoints/calibration_report.json --method platt`
-   - Compare both methods with Makefile: `make calibrate-compare`
-18. Plot training curves:
+13. Train conditional diffusion model:
+   - `python -m llps_diffusion.train --config configs/base.yaml --device auto`
+   - After each training run, an experiment report is auto-generated under `docs/experiments/exp_YYYYMMDD_HHMMSS.md`
+14. Predict conditional distribution over candidate B set (`p(B|A, y=1)` on a finite candidate pool):
+   - Build candidate CSV automatically (recommended):
+     - `python -m llps_diffusion.data.build_candidate_b --input-csv data/processed/splits/test.csv --fallback-csv data/processed/protein_pairs_selected.csv --output-csv data/processed/candidate_b.csv`
+   - Candidate CSV requires `seq_b` column (optional `id_b`).
+   - `python -m llps_diffusion.predict --seq-a "MSTNPKPQRKTKRNTNRRPQDVKFPGG" --candidates-csv data/processed/candidate_b.csv --checkpoint models/checkpoints/conditional_diffusion_best.pt --temperature 0.2 --top-k 50 --num-samples 8 --sampling-steps 200 --output-json models/checkpoints/b_distribution.json --device auto`
+   - Makefile shortcut (`make predict-distribution`) now auto-builds `candidate_b.csv` before prediction.
+15. Evaluate retrieval quality for candidate ranking (`Recall@K`, `MRR`, `NDCG@K`):
+   - Build retrieval eval CSV from test split:
+     - `python -m llps_diffusion.data.build_retrieval_eval --input-csv data/processed/splits/test.csv --output-csv data/processed/retrieval_eval.csv --report-path data/processed/retrieval_eval_report.txt --max-candidates-per-anchor 0 --seed 42`
+   - Prepare retrieval eval CSV with columns: `id_a, seq_a, id_b, seq_b, label`
+   - `python -m llps_diffusion.eval.generative_retrieval --input-csv data/processed/retrieval_eval.csv --checkpoint models/checkpoints/conditional_diffusion_best.pt --output-json models/checkpoints/retrieval_metrics.json --device auto --num-samples 8 --sampling-steps 200`
+   - One-shot pipeline shortcut:
+     - `make retrieval-pipeline`
+   - Compare two retrieval reports:
+     - `python -m llps_diffusion.eval.compare_retrieval --baseline-json models/checkpoints/retrieval_metrics_baseline.json --candidate-json models/checkpoints/retrieval_metrics.json --output-json models/checkpoints/retrieval_comparison.json --baseline-name baseline --candidate-name candidate`
+16. (Optional baseline) keep classification threshold/evaluate/calibration scripts for old discriminative checkpoints.
+17. Plot training curves:
    - `python -m llps_diffusion.visualization.plot_training --log-csv models/checkpoints/train_log.csv --output-png models/checkpoints/train_curves.png`
+18. Plot retrieval metrics (`Recall@K`, `NDCG@K`, `MRR`):
+   - `python -m llps_diffusion.visualization.plot_retrieval --retrieval-json models/checkpoints/retrieval_metrics.json --output-png models/checkpoints/retrieval_curves.png`
 
 ## Development Tooling
 
@@ -95,7 +103,7 @@ The current structure is aligned with the four-stage technical guide.
 ## Mapping to the PDF Stages
 
 - Stage 1 (data): `download_phasepro.py` + `generate_pairs.py` + `pairs.py` + `features/priors.py`
-- Stage 2 (architecture): `models/cross_attention.py`
-- Stage 3 (fine-tuning): `train.py` + `losses/infonce.py`
-- Stage 4 (inference/scoring): `predict.py` + `scoring/pspi.py`
+- Stage 2 (architecture): `models/conditional_diffusion.py` + `models/noise_schedule.py`
+- Stage 3 (fine-tuning): `train.py`
+- Stage 4 (inference/scoring): `predict.py` + `eval/generative_retrieval.py`
 

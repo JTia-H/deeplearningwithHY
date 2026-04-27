@@ -14,6 +14,21 @@ from sklearn.metrics import accuracy_score, average_precision_score, f1_score, r
 from llps_diffusion.models.cross_attention import PairCrossAttentionScorer
 
 
+def resolve_device(device: str = "auto") -> torch.device:
+    normalized = device.lower()
+    if normalized == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if normalized == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "CUDA requested but not available. Use --device auto or --device cpu."
+            )
+        return torch.device("cuda")
+    if normalized == "cpu":
+        return torch.device("cpu")
+    raise ValueError(f"Unsupported device: {device}. Expected one of: auto, cuda, cpu.")
+
+
 def evaluate_test_set(
     test_csv: str | Path,
     checkpoint: str | Path,
@@ -22,6 +37,7 @@ def evaluate_test_set(
     threshold_json: str | Path = "models/checkpoints/best_threshold.json",
     calibration_method: str = "none",
     val_csv_for_calibration: str | Path = "data/processed/splits/val.csv",
+    device: str = "auto",
 ) -> dict[str, float | str]:
     resolved_threshold = 0.5
     threshold_source = "default_0.5"
@@ -42,11 +58,12 @@ def evaluate_test_set(
     if missing:
         raise ValueError(f"Missing required columns in test csv: {sorted(missing)}")
 
-    model = PairCrossAttentionScorer(input_dim=21, hidden_dim=64)
+    resolved_device = resolve_device(device)
+    model = PairCrossAttentionScorer(input_dim=21, hidden_dim=64).to(resolved_device)
     ckpt = Path(checkpoint)
     if not ckpt.exists():
         raise FileNotFoundError(f"Checkpoint not found: {ckpt}")
-    state = torch.load(ckpt, map_location="cpu")
+    state = torch.load(ckpt, map_location=resolved_device)
     model.load_state_dict(state)
     model.eval()
 
@@ -139,6 +156,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--val-csv-for-calibration", type=str, default="data/processed/splits/val.csv"
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        choices=["auto", "cuda", "cpu"],
+        help="Execution device. auto prefers GPU and falls back to CPU.",
+    )
     return parser.parse_args()
 
 
@@ -152,4 +176,5 @@ if __name__ == "__main__":
         threshold_json=args.threshold_json,
         calibration_method=args.calibration_method,
         val_csv_for_calibration=args.val_csv_for_calibration,
+        device=args.device,
     )

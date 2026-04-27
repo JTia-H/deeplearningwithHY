@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from llps_diffusion.data.assemble_training_pairs import assemble_training_pairs
+from llps_diffusion.data.build_retrieval_eval import build_retrieval_eval_csv
 from llps_diffusion.data.build_strict_positives import write_report
 from llps_diffusion.data.curate_positives import curate_positives
 from llps_diffusion.data.datasets import sequence_to_features
@@ -10,9 +11,13 @@ from llps_diffusion.data.pairs import ProteinPair, build_demo_pairs, load_pairs_
 from llps_diffusion.data.pairs_qc import run_qc
 from llps_diffusion.data.split_pairs import split_by_anchor_protein
 from llps_diffusion.eval.calibrate import compute_metrics
+from llps_diffusion.eval.compare_retrieval import compare_retrieval_reports
+from llps_diffusion.eval.retrieval import evaluate_retrieval
 from llps_diffusion.eval.threshold_sweep import sweep_thresholds
+from llps_diffusion.experiments.reporting import generate_experiment_report
 from llps_diffusion.features.priors import estimate_idr_ratio, estimate_prld_score
 from llps_diffusion.losses.infonce import infonce_loss
+from llps_diffusion.predict import predict_b_distribution
 
 
 def test_sequence_to_features_length() -> None:
@@ -159,3 +164,105 @@ def test_compute_metrics_basic() -> None:
     out = compute_metrics(y_true, y_prob, threshold=0.5)
     assert 0.0 <= out["accuracy"] <= 1.0
     assert 0.0 <= out["f1"] <= 1.0
+
+
+def test_predict_b_distribution_candidate_set(tmp_path: Path) -> None:
+    candidates = tmp_path / "candidates.csv"
+    candidates.write_text(
+        "id_b,seq_b\nB1,ACDEFGHIK\nB2,GGGGSSSSQ\nB3,NNNNKKKKQ\n",
+        encoding="utf-8",
+    )
+    ckpt = tmp_path / "missing.pt"
+    import pytest
+
+    with pytest.raises(FileNotFoundError):
+        predict_b_distribution(
+            seq_a="MSTNPKPQRKTKRNTNRRPQDVKFPGG",
+            candidates_csv=candidates,
+            checkpoint=ckpt,
+            device="cpu",
+            output_json=tmp_path / "b_dist.json",
+        )
+
+
+def test_evaluate_retrieval_missing_checkpoint(tmp_path: Path) -> None:
+    retrieval_csv = tmp_path / "retrieval_eval.csv"
+    retrieval_csv.write_text(
+        "id_a,seq_a,id_b,seq_b,label\n" "A1,AAAAA,B1,CCCCC,1\n" "A1,AAAAA,B2,DDDDD,0\n",
+        encoding="utf-8",
+    )
+    import pytest
+
+    with pytest.raises(FileNotFoundError):
+        evaluate_retrieval(
+            input_csv=retrieval_csv,
+            checkpoint=tmp_path / "missing.pt",
+            output_json=tmp_path / "retrieval_metrics.json",
+            device="cpu",
+        )
+
+
+def test_build_retrieval_eval_csv(tmp_path: Path) -> None:
+    src = tmp_path / "test_split.csv"
+    src.write_text(
+        "id_a,seq_a,id_b,seq_b,label,source\n"
+        "A1,AAAAA,B1,CCCCC,1,pos\n"
+        "A1,AAAAA,B2,DDDDD,0,neg\n"
+        "A2,GGGGG,B3,EEEEE,0,neg\n",
+        encoding="utf-8",
+    )
+    out_csv, out_report = build_retrieval_eval_csv(
+        input_csv=src,
+        output_csv=tmp_path / "retrieval_eval.csv",
+        report_path=tmp_path / "retrieval_eval_report.txt",
+        max_candidates_per_anchor=0,
+        seed=7,
+    )
+    assert out_csv.exists()
+    assert out_report.exists()
+
+
+def test_compare_retrieval_reports(tmp_path: Path) -> None:
+    base_json = tmp_path / "base.json"
+    cand_json = tmp_path / "cand.json"
+    base_json.write_text(
+        '{"metrics":{"mrr":0.2,"recall@1":0.1,"recall@5":0.3,"recall@10":0.4,"recall@20":0.5,"ndcg@1":0.1,"ndcg@5":0.2,"ndcg@10":0.3,"ndcg@20":0.4}}',
+        encoding="utf-8",
+    )
+    cand_json.write_text(
+        '{"metrics":{"mrr":0.3,"recall@1":0.2,"recall@5":0.35,"recall@10":0.45,"recall@20":0.55,"ndcg@1":0.2,"ndcg@5":0.25,"ndcg@10":0.35,"ndcg@20":0.45}}',
+        encoding="utf-8",
+    )
+    out = compare_retrieval_reports(
+        baseline_json=base_json,
+        candidate_json=cand_json,
+        output_json=tmp_path / "cmp.json",
+        baseline_name="old",
+        candidate_name="new",
+    )
+    assert out.exists()
+
+
+def test_generate_experiment_report(tmp_path: Path) -> None:
+    ckpt = tmp_path / "checkpoints"
+    ckpt.mkdir(parents=True, exist_ok=True)
+    (ckpt / "train_log.csv").write_text(
+        "epoch,train_loss,val_loss,val_acc,val_auc,lr,grad_norm_mean,grad_norm_max,skipped\n"
+        "1,0.5,0.4,0.8,0.9,0.001,0.3,0.9,0\n",
+        encoding="utf-8",
+    )
+    (ckpt / "test_metrics.json").write_text(
+        '{"accuracy":0.8,"f1":0.75,"auc":0.88,"pr_auc":0.84}', encoding="utf-8"
+    )
+    (ckpt / "retrieval_metrics.json").write_text(
+        '{"metrics":{"mrr":0.5,"recall@1":0.4,"recall@5":0.7,"recall@10":0.8,"recall@20":0.9,"ndcg@1":0.4,"ndcg@5":0.6,"ndcg@10":0.7,"ndcg@20":0.8}}',
+        encoding="utf-8",
+    )
+    out = generate_experiment_report(
+        config_path="configs/base.yaml",
+        device="cpu",
+        output_dir=tmp_path / "experiments",
+        checkpoints_dir=ckpt,
+        exp_id="exp_test",
+    )
+    assert out.exists()

@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 
-class DiffusionClassifierBaseline(nn.Module):  # type: ignore[misc]
+class DiffusionClassifierBaseline(nn.Module):
     """
     Lightweight baseline model.
     - Input: amino-acid frequency + sequence length features
@@ -24,4 +24,4 @@ class DiffusionClassifierBaseline(nn.Module):  # type: ignore[misc]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         logits = self.net(x)
-        return logits.squeeze(-1)
+        return torch.as_tensor(logits.squeeze(-1))

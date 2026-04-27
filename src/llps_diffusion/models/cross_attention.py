@@ -6,7 +6,7 @@ from torch import nn
 from llps_diffusion.data.datasets import sequence_to_features
 
 
-class PairCrossAttentionScorer(nn.Module):  # type: ignore[misc]
+class PairCrossAttentionScorer(nn.Module):
     """
     Placeholder two-tower + cross-attention scorer.
     This module aligns with the PDF architecture and can be replaced later
@@ -23,7 +23,8 @@ class PairCrossAttentionScorer(nn.Module):  # type: ignore[misc]
         self.proj = nn.Sequential(nn.LayerNorm(hidden_dim), nn.Linear(hidden_dim, 1))
 
     def encode_seq(self, seq: str) -> torch.Tensor:
-        x = torch.tensor(sequence_to_features(seq), dtype=torch.float32).unsqueeze(0)
+        device = next(self.parameters()).device
+        x = torch.tensor(sequence_to_features(seq), dtype=torch.float32, device=device).unsqueeze(0)
         return x
 
     def score(self, seq_a: str, seq_b: str) -> torch.Tensor:
@@ -33,4 +34,4 @@ class PairCrossAttentionScorer(nn.Module):  # type: ignore[misc]
         kv = self.encoder_b(feat_b).unsqueeze(1)
         fused, _ = self.cross_attn(q, kv, kv)
         logits = self.proj(fused.squeeze(1))
-        return logits.squeeze(-1)
+        return torch.as_tensor(logits.squeeze(-1))

@@ -4,6 +4,7 @@ import argparse
 import json
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -15,8 +16,23 @@ from sklearn.metrics import accuracy_score, average_precision_score, f1_score, r
 from llps_diffusion.models.cross_attention import PairCrossAttentionScorer
 
 
+def resolve_device(device: str = "auto") -> torch.device:
+    normalized = device.lower()
+    if normalized == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if normalized == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "CUDA requested but not available. Use --device auto or --device cpu."
+            )
+        return torch.device("cuda")
+    if normalized == "cpu":
+        return torch.device("cpu")
+    raise ValueError(f"Unsupported device: {device}. Expected one of: auto, cuda, cpu.")
+
+
 def collect_probs_labels(
-    csv_path: str | Path, checkpoint: str | Path
+    csv_path: str | Path, checkpoint: str | Path, device: str = "auto"
 ) -> tuple[np.ndarray, np.ndarray]:
     df = pd.read_csv(csv_path)
     required = {"seq_a", "seq_b", "label"}
@@ -24,8 +40,9 @@ def collect_probs_labels(
     if missing:
         raise ValueError(f"Missing required columns in csv: {sorted(missing)}")
 
-    model = PairCrossAttentionScorer(input_dim=21, hidden_dim=64)
-    state = torch.load(checkpoint, map_location="cpu")
+    resolved_device = resolve_device(device)
+    model = PairCrossAttentionScorer(input_dim=21, hidden_dim=64).to(resolved_device)
+    state = torch.load(checkpoint, map_location=resolved_device)
     model.load_state_dict(state)
     model.eval()
 
@@ -50,7 +67,7 @@ def fit_calibrator(
         clf.fit(val_probs.reshape(-1, 1), val_labels)
 
         def calibrate_fn(x: np.ndarray) -> np.ndarray:
-            return clf.predict_proba(x.reshape(-1, 1))[:, 1]
+            return cast(np.ndarray, clf.predict_proba(x.reshape(-1, 1))[:, 1])
 
         return calibrate_fn, {"method": "platt"}
     if method == "isotonic":
@@ -58,7 +75,7 @@ def fit_calibrator(
         iso.fit(val_probs, val_labels)
 
         def calibrate_fn(x: np.ndarray) -> np.ndarray:
-            return iso.predict(x)
+            return cast(np.ndarray, iso.predict(x))
 
         return calibrate_fn, {"method": "isotonic"}
     raise ValueError(f"Unknown calibration method: {method}")
@@ -87,6 +104,7 @@ def calibrate_and_evaluate(
     threshold_json: str | Path = "models/checkpoints/best_threshold.json",
     output_json: str | Path = "models/checkpoints/calibration_report.json",
     method: str = "platt",
+    device: str = "auto",
 ) -> dict[str, object]:
     threshold = 0.5
     th_path = Path(threshold_json)
@@ -95,8 +113,8 @@ def calibrate_and_evaluate(
         if "threshold" in payload:
             threshold = float(payload["threshold"])
 
-    val_probs, val_labels = collect_probs_labels(val_csv, checkpoint)
-    test_probs, test_labels = collect_probs_labels(test_csv, checkpoint)
+    val_probs, val_labels = collect_probs_labels(val_csv, checkpoint, device=device)
+    test_probs, test_labels = collect_probs_labels(test_csv, checkpoint, device=device)
     calibrate_fn, meta = fit_calibrator(val_probs, val_labels, method=method)
     test_probs_cal = np.clip(calibrate_fn(test_probs), 0.0, 1.0)
 
@@ -135,6 +153,13 @@ def parse_args() -> argparse.Namespace:
         "--output-json", type=str, default="models/checkpoints/calibration_report.json"
     )
     parser.add_argument("--method", type=str, default="platt", choices=["platt", "isotonic"])
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        choices=["auto", "cuda", "cpu"],
+        help="Execution device. auto prefers GPU and falls back to CPU.",
+    )
     return parser.parse_args()
 
 
@@ -147,4 +172,5 @@ if __name__ == "__main__":
         threshold_json=args.threshold_json,
         output_json=args.output_json,
         method=args.method,
+        device=args.device,
     )

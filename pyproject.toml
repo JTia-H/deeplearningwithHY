@@ -27,6 +27,7 @@ dev = [
   "pytest-cov>=5.0",
   "ruff>=0.6.0",
   "mypy>=1.10",
+  "types-PyYAML",
   "pre-commit>=3.7",
 ]
 
@@ -50,6 +51,19 @@ warn_return_any = true
 warn_unused_configs = true
 pretty = true
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+  "llps_diffusion.models.diffusion_baseline",
+  "llps_diffusion.models.cross_attention",
+  "llps_diffusion.models.conditional_diffusion",
+  "llps_diffusion.data.diffusion_dataset",
+]
+disable_error_code = ["misc"]
+
+[[tool.mypy.overrides]]
+module = ["llps_diffusion.train"]
+disable_error_code = ["no-untyped-call"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
